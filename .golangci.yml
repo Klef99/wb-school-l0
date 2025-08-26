@@ -1,0 +1,104 @@
+version: "2"
+run:
+  concurrency: 8
+  timeout: 30m
+  issues-exit-code: 1
+  tests: true
+
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+  allow-serial-runners: false
+
+formatters:
+  exclusions:
+    paths:
+      - "wire_gen.go"
+
+issues:
+  uniq-by-line: false
+  fix: false
+
+linters:
+  default: none
+  enable:
+    - cyclop
+    - errcheck
+    - dupl
+    - errorlint
+    - gocritic
+    - lll
+    - misspell
+    - wsl_v5
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - prealloc
+    - rowserrcheck
+    - sqlclosecheck
+
+  settings:
+    # Error handling
+    errcheck:
+      # Report about not checking of errors in type assertions: a := b.(MyStruct)
+      check-type-assertions: true
+      # Report about assignment of errors to blank identifier: num, _ := strconv.Atoi(numStr)
+      check-blank: true
+      # To disable the errcheck built-in exclude list.
+      # See `-excludeonly` option in https://github.com/kisielk/errcheck#excluding-functions for details.
+      disable-default-exclusions: true
+
+    exhaustive:
+      # Program elements to check for exhaustiveness.
+      check:
+        - switch
+        - map
+
+    lll:
+      line-length: 120
+      tab-width: 4
+
+    funlen:
+      lines: 80
+
+    cyclop:
+      max-complexity: 20
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+
+severity:
+  default: error
+  rules:
+    - linters:
+        - dupl
+        - gofmt
+        - lll
+        - misspell
+        - funlen
+        - usestdlibvars
+        - wsl_v5
+      severity: info
+    - linters:
+        - cyclop
+        - errcheck
+        - errorlint
+        - wastedassign
+        - exhaustive
+        - unconvert
+        - unparam
+        - unused
+      severity: minor
+    - linters:
+        - prealloc
+        - rowserrcheck
+        - sqlclosecheck
+        - gocritic
+      severity: major
