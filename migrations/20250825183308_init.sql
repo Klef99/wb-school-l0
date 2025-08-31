@@ -1,5 +1,6 @@
 -- +goose Up
-CREATE TABLE "orders"
+-- +goose StatementBegin
+CREATE TABLE IF NOT EXISTS "orders"
 (
 	"uid"                varchar PRIMARY KEY,
 	"track_number"       varchar UNIQUE,
@@ -10,11 +11,11 @@ CREATE TABLE "orders"
 	"delivery_service"   varchar,
 	"shardkey"           integer,
 	"sm_id"              integer,
-	"date_created"       time,
-	"oof_shard"          integer
+	"date_created"       timestamp,
+	"oof_shard"          varchar
 );
 
-CREATE TABLE "deliveries"
+CREATE TABLE IF NOT EXISTS "deliveries"
 (
 	"order_uid" varchar PRIMARY KEY,
 	"name"      varchar,
@@ -26,11 +27,11 @@ CREATE TABLE "deliveries"
 	"email"     varchar
 );
 
-CREATE TABLE "payments"
+CREATE TABLE IF NOT EXISTS "payments"
 (
 	"transaction"   varchar PRIMARY KEY,
 	"request_id"    varchar,
-	"currency"      varchar(3),
+	"currency"      varchar,
 	"provider"      varchar,
 	"amount"        integer,
 	"payment_dt"    timestamp,
@@ -40,7 +41,7 @@ CREATE TABLE "payments"
 	"custom_fee"    integer
 );
 
-CREATE TABLE "items"
+CREATE TABLE IF NOT EXISTS "items"
 (
 	"chrt_id"      integer,
 	"track_number" varchar,
@@ -48,26 +49,28 @@ CREATE TABLE "items"
 	"rid"          varchar,
 	"name"         varchar,
 	"sale"         integer,
-	"size"         integer,
+	"size"         varchar,
 	"total_price"  integer,
 	"nm_id"        integer,
 	"brand"        varchar,
-	"status"       int,
-	PRIMARY KEY (track_number, nm_id)
+	"status"       integer,
+	PRIMARY KEY (track_number, chrt_id)
 );
 
-ALTER TABLE "deliveries"
+ALTER TABLE IF EXISTS "deliveries"
 	ADD FOREIGN KEY ("order_uid") REFERENCES "orders" ("uid");
 
-ALTER TABLE "payments"
+ALTER TABLE IF EXISTS "payments"
 	ADD FOREIGN KEY ("transaction") REFERENCES "orders" ("uid");
 
-ALTER TABLE "items"
+ALTER TABLE IF EXISTS "items"
 	ADD FOREIGN KEY ("track_number") REFERENCES "orders" ("track_number");
-
+-- +goose StatementEnd
 
 -- +goose Down
-DROP TABLE deliveries;
-DROP TABLE items;
-DROP TABLE payments;
-DROP TABLE orders;
+-- +goose StatementBegin
+DROP TABLE IF EXISTS deliveries;
+DROP TABLE IF EXISTS items;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS orders;
+-- +goose StatementEnd

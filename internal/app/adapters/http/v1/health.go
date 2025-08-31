@@ -21,9 +21,11 @@ func NewHealthHandler(service HealthService) *HealthHandler {
 
 func (h *HealthHandler) Handle(c echo.Context) error {
 	ctx := c.Request().Context()
+
 	err := h.service.Health(ctx)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
 	return c.NoContent(http.StatusOK)
 }

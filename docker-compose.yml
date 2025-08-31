@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:13.10
+    image: postgres:17.0
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -15,6 +15,23 @@ services:
       interval: 10s
       timeout: 60s
       retries: 5
+    networks:
+      - postgres-net
+
+  migrations-up:
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    env_file:
+      .env
+    entrypoint: "/app/main migrations-up"
+    networks:
+      - postgres-net
+    depends_on:
+      db:
+        condition: service_healthy
 
   kafka1:
     image: confluentinc/cp-kafka:7.8.0
@@ -112,6 +129,74 @@ services:
     networks:
       - kafka-net
 
+  init-kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    entrypoint: [ '/bin/sh', '-c' ]
+    networks:
+      - kafka-net
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka1:9092 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka1:9092 --create --if-not-exists --topic orders --replication-factor 3 --partitions 3
+      
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka1:9092 --list
+      "
+
+  producer:
+    build:
+      context: producer
+    environment:
+      - "TIMEOUT=100ms"
+      - "KAFKA_BROKER=kafka1:9092,kafka2:9094,kafka3:9096"
+      - "KAFKA_TOPIC=orders"
+    networks:
+      - kafka-net
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    restart: unless-stopped
+
+  backend:
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_ADDR=kafka1:9092,kafka2:9092,kafka3:9092
+      - POSTGRES_HOST=db
+      - ENVIRONMENT=stage
+    env_file:
+      - .env
+    ports:
+      - "8085:8080"
+    networks:
+      - kafka-net
+      - postgres-net
+    depends_on:
+      db:
+        condition: service_healthy
+      init-kafka:
+        condition: service_started
+      migrations-up:
+        condition: service_started
+
+  dozzle:
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8082:8080"
+    environment:
+      - DOZZLE_ENABLE_ACTIONS=true
+      - DOZZLE_ENABLE_SHELL=true
+
 volumes:
   wb-pg-data:
   kafka-1-data:
@@ -120,4 +205,6 @@ volumes:
 
 networks:
   kafka-net:
+    driver: bridge
+  postgres-net:
     driver: bridge

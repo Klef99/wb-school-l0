@@ -2,20 +2,20 @@ package service
 
 import (
 	"context"
+	"log/slog"
+
+	"github.com/klef99/wb-school-l0/pkg/postgres"
 )
 
-type HealthStorage interface {
-	Health(ctx context.Context) error
-}
-
 type HealthService struct {
-	healthStorage HealthStorage
+	log *slog.Logger
+	pg  postgres.StorageManager
 }
 
-func NewHealthService(storage HealthStorage) *HealthService {
-	return &HealthService{healthStorage: storage}
+func NewHealthService(logger *slog.Logger, storage postgres.StorageManager) *HealthService {
+	return &HealthService{log: logger, pg: storage}
 }
 
 func (s *HealthService) Health(ctx context.Context) error {
-	return s.healthStorage.Health(ctx)
+	return s.pg.GetStorage().Health(ctx)
 }

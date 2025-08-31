@@ -10,35 +10,73 @@ import (
 	"github.com/klef99/wb-school-l0/internal/app/adapters/http"
 	"github.com/klef99/wb-school-l0/internal/app/adapters/http/v1"
 	"github.com/klef99/wb-school-l0/internal/app/config"
+	"github.com/klef99/wb-school-l0/internal/repository/deliveries"
+	"github.com/klef99/wb-school-l0/internal/repository/items"
+	"github.com/klef99/wb-school-l0/internal/repository/orders"
+	"github.com/klef99/wb-school-l0/internal/repository/payments"
 	"github.com/klef99/wb-school-l0/internal/service"
-	"github.com/klef99/wb-school-l0/internal/storage"
+	"github.com/klef99/wb-school-l0/pkg/postgres"
 )
 
 // Injectors from wire.go:
 
-func InitializeDependencies() (HTTPAdapter, func(), error) {
+func InitializeDependencies() (*Command, func(), error) {
 	configConfig, err := config.LoadConfig()
 	if err != nil {
-		return HTTPAdapter{}, nil, err
+		return nil, nil, err
 	}
 	logger := ProvideLogger(configConfig)
 	echo, cleanup := ProvideEcho(logger)
-	postgres, cleanup2, err := ProvidePostgres(configConfig)
+	postgresPostgres, cleanup2, err := ProvidePostgres(configConfig, logger)
 	if err != nil {
 		cleanup()
-		return HTTPAdapter{}, nil, err
+		return nil, nil, err
 	}
-	healthStorage := storage.NewHealthStorage(postgres)
-	healthService := service.NewHealthService(healthStorage)
+	storageManager := postgres.NewStorageManager(postgresPostgres)
+	healthService := service.NewHealthService(logger, storageManager)
 	healthHandler := v1.NewHealthHandler(healthService)
-	rootHandler := http.NewRootHandler(healthHandler)
-	httpAdapter, cleanup3, err := ProvideHTTPAdapter(configConfig, logger, echo, rootHandler)
+	statementBuilderType := ProvideStatementBuilder()
+	repository := payments.NewRepository(statementBuilderType)
+	deliveriesRepository := deliveries.NewRepository(statementBuilderType)
+	itemsRepository := items.NewRepository(statementBuilderType)
+	ordersRepository := orders.NewRepository(statementBuilderType)
+	orderService := service.NewOrderService(logger, storageManager, repository, deliveriesRepository, itemsRepository, ordersRepository)
+	getOrderHandler := v1.NewGetOrderHandler(orderService)
+	rootHandlerV1 := http.NewRootHandlerV1(healthHandler, getOrderHandler)
+	httpAdapter, cleanup3, err := ProvideHTTPAdapter(configConfig, logger, echo, rootHandlerV1)
 	if err != nil {
 		cleanup2()
 		cleanup()
-		return HTTPAdapter{}, nil, err
+		return nil, nil, err
 	}
-	return httpAdapter, func() {
+	consumer, cleanup4, err := ProvideKafkaConsumer(orderService, configConfig, logger)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	kafkaAdapter, cleanup5, err := ProvideKafkaAdapter(configConfig, logger, consumer)
+	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	command, cleanup6, err := ProvideCommand(logger, httpAdapter, kafkaAdapter)
+	if err != nil {
+		cleanup5()
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	return command, func() {
+		cleanup6()
+		cleanup5()
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()

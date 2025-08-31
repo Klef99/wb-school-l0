@@ -58,6 +58,6 @@ infra-rm: ## Remove infrastructure for service
 	@docker-compose down -v
 .PHONY: infra-rm
 
-run: ## Build and run application (go run)
+run: gen-wire ## Build and run application (go run)
 	@go run ./cmd/main.go
 .PHONY: run

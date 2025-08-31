@@ -9,5 +9,6 @@ import (
 
 var HTTPHandlerSet = wire.NewSet(
 	v1.NewHealthHandler,
-	httphandler.NewRootHandler,
+	v1.NewGetOrderHandler,
+	httphandler.NewRootHandlerV1,
 )

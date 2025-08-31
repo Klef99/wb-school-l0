@@ -30,6 +30,7 @@ func ProvideEcho(logger *slog.Logger) (*echo.Echo, func()) {
 			logger.Error(fmt.Errorf("failed to shutdown echo: %w", err).Error())
 		}
 	}
+
 	return e, cleanup
 }
 
@@ -37,7 +38,7 @@ func ProvideHTTPAdapter(
 	cfg *config.Config,
 	logger *slog.Logger,
 	e *echo.Echo,
-	rootHandler *httphandler.RootHandler,
+	rootHandler *httphandler.RootHandlerV1,
 ) (HTTPAdapter, func(), error) {
 	e.Use(middleware.RequestID())
 	e.Use(slogecho.New(logger))
@@ -46,6 +47,7 @@ func ProvideHTTPAdapter(
 	v1Group := e.Group("/v1")
 	// Set up endpoints
 	v1Group.GET("/health", rootHandler.Health.Handle)
+	v1Group.GET("/orders/:id", rootHandler.GetOrderHandler.Handle)
 
 	var errCh = make(chan error, 1)
 

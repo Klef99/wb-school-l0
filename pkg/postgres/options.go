@@ -2,24 +2,32 @@ package postgres
 
 import (
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Option func(*Postgres)
+type Option func(*pgxpool.Config)
 
-func MaxPoolSize(size int) Option {
-	return func(c *Postgres) {
-		c.maxPoolSize = size
+func MaxConnections(count int32) Option {
+	return func(c *pgxpool.Config) {
+		c.MaxConns = count
 	}
 }
 
-func ConnAttempts(attempts int) Option {
-	return func(c *Postgres) {
-		c.connAttempts = attempts
+func MinConnections(count int32) Option {
+	return func(c *pgxpool.Config) {
+		c.MinConns = count
 	}
 }
 
-func ConnTimeout(timeout time.Duration) Option {
-	return func(c *Postgres) {
-		c.connTimeout = timeout
+func MaxConnectionLifetime(d time.Duration) Option {
+	return func(c *pgxpool.Config) {
+		c.MaxConnLifetime = d
+	}
+}
+
+func MaxConnectionIdleTime(d time.Duration) Option {
+	return func(c *pgxpool.Config) {
+		c.MaxConnIdleTime = d
 	}
 }

@@ -2,76 +2,65 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
-	"github.com/Masterminds/squirrel"
-	_ "github.com/jackc/pgx/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
-	_defaultMaxPoolSize  = 1
 	_defaultConnAttempts = 10
-	_defaultConnTimeout  = time.Second
+	_defaultConnTimeout  = 1 * time.Second
 )
 
 type Postgres struct {
-	Conn    *sql.DB
-	Builder squirrel.StatementBuilderType
-	// Params
-	maxPoolSize  int
+	*pgxpool.Pool
 	connAttempts int
 	connTimeout  time.Duration
 }
 
-func New(url string, opts ...Option) (*Postgres, error) {
+func New(logger *slog.Logger, url string, opts ...Option) (*Postgres, error) {
 	pg := &Postgres{
-		maxPoolSize:  _defaultMaxPoolSize,
 		connAttempts: _defaultConnAttempts,
-		connTimeout:  _defaultConnTimeout,
 	}
 
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, err
+	}
 	// Custom options
 	for _, opt := range opts {
-		opt(pg)
+		opt(cfg)
 	}
 
-	var err error
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
+	}
 
 	for pg.connAttempts > 0 {
-		pg.Conn, err = sql.Open("pgx", url)
-		if err == nil {
-			pg.Conn.SetMaxOpenConns(pg.maxPoolSize)
-			pg.Conn.SetMaxIdleConns(pg.maxPoolSize)
+		err = pool.Ping(context.Background())
+		if err != nil {
+			logger.Warn("failed to connect to postgres", slog.Int("attempts", pg.connAttempts))
+			pg.connAttempts--
+			time.Sleep(pg.connTimeout)
 
-			err = pg.Conn.Ping()
-			if err == nil {
-				break
-			}
+			continue
 		}
 
-		log.Printf("postgres is trying to connect, attempts left: %d", pg.connAttempts)
-
-		time.Sleep(pg.connTimeout)
-
-		pg.connAttempts--
+		break
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("postgres - NewPostgres - connAttempts == 0: %w", err)
-	}
-
-	pg.Builder = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).RunWith(pg.Conn)
+	pg.Pool = pool
 
 	return pg, nil
 }
 
 func (p *Postgres) Close() error {
-	return p.Conn.Close()
+	return p.Close()
 }
 
 func (p *Postgres) Health(ctx context.Context) error {
-	return p.Conn.PingContext(ctx)
+	return p.Ping(ctx)
 }

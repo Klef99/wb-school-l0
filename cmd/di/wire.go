@@ -7,14 +7,16 @@ import (
 	"github.com/google/wire"
 )
 
-func InitializeDependencies() (HTTPAdapter, func(), error) {
+func InitializeDependencies() (*Command, func(), error) {
 	panic(
 		wire.Build(
 			InfrastructureSet,
+			HHTPAdapterSet,
 			StorageSet,
 			ServiceSet,
-			HHTPAdapterSet,
+			KafkaAdapterSet,
 			HTTPHandlerSet,
+			ProvideCommand,
 		),
 	)
 }
