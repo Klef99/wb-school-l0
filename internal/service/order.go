@@ -16,21 +16,25 @@ import (
 type PaymentsRepository interface {
 	Store(ctx context.Context, query postgres.Query, payment models.Payment) error
 	Get(ctx context.Context, query postgres.Query, transaction string) (models.Payment, error)
+	GetAll(ctx context.Context, query postgres.Query) ([]models.Payment, error)
 }
 
 type DeliveriesRepository interface {
 	Store(ctx context.Context, query postgres.Query, delivery models.Delivery) error
 	Get(ctx context.Context, query postgres.Query, uid string) (models.Delivery, error)
+	GetAll(ctx context.Context, query postgres.Query) ([]models.Delivery, error)
 }
 
 type ItemsRepository interface {
 	Store(ctx context.Context, query postgres.Query, items []models.Item) error
 	Get(ctx context.Context, query postgres.Query, trackNumber string) ([]models.Item, error)
+	GetAll(ctx context.Context, query postgres.Query) ([]models.Item, error)
 }
 
 type OrdersRepository interface {
 	StoreBare(ctx context.Context, query postgres.Query, bareOrder models.Order) error
 	GetBare(ctx context.Context, query postgres.Query, uid string) (models.Order, error)
+	GetBareAll(ctx context.Context, query postgres.Query) ([]models.Order, error)
 	Exist(ctx context.Context, query postgres.Query, uid string) (bool, error)
 }
 
@@ -155,14 +159,9 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 
 	defer func() {
 		if err != nil {
-			if errTx = tx.Rollback(ctx); errTx != nil {
+			if errTx = tx.Rollback(ctx); errTx != nil && !errors.Is(err, postgres.ErrTxClosed) {
 				err = errors.Join(errTx, err)
 				s.logger.Error("failed to roll back transaction", sl.Err(err))
-			}
-		} else {
-			if errTx = tx.Commit(ctx); errTx != nil {
-				err = errTx
-				s.logger.Error("failed to commit transaction", sl.Err(err))
 			}
 		}
 	}()
@@ -202,10 +201,81 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 
 	order = toOrderDTO(bareOrder)
 
+	if err = tx.Commit(ctx); err != nil && !errors.Is(err, postgres.ErrTxClosed) {
+		s.logger.Error("failed to commit tx", sl.Err(err))
+
+		return dto.Order{}, fmt.Errorf("failed commit tx: %w", err)
+	}
+
 	err = s.cache.GetCache().Set(ctx, order.OrderUID, order)
 	if err != nil {
 		s.logger.Info("failed to set cache", sl.Err(err))
 	}
 
 	return order, nil
+}
+
+func (s *OrderService) GetAll(ctx context.Context) ([]dto.Order, error) {
+	tx, errTx := s.pg.GetStorage().BeginTx(ctx, "tx.order.Store")
+	if errTx != nil {
+		s.logger.Error("failed to begin tx", sl.Err(errTx))
+	}
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			if errTx = tx.Rollback(ctx); errTx != nil && !errors.Is(err, postgres.ErrTxClosed) {
+				err = errors.Join(errTx, err)
+				s.logger.Error("failed to roll back transaction", sl.Err(err))
+			}
+		}
+	}()
+
+	bareOrders, err := s.ordersRepo.GetBareAll(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed get all orders: %w", err)
+	}
+
+	payments, err := s.paymentsRepo.GetAll(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed get all payments: %w", err)
+	}
+
+	deliveries, err := s.deliveriesRepo.GetAll(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed get all deliveries: %w", err)
+	}
+
+	items, err := s.itemsRepo.GetAll(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed get all items: %w", err)
+	}
+
+	paymentsMap := make(map[string]models.Payment, len(payments))
+	for _, p := range payments {
+		paymentsMap[p.Transaction] = p
+	}
+
+	deliveriesMap := make(map[string]models.Delivery, len(deliveries))
+	for _, d := range deliveries {
+		deliveriesMap[d.OrderUID] = d
+	}
+
+	itemsMap := make(map[string][]models.Item)
+	for _, it := range items {
+		itemsMap[it.TrackNumber] = append(itemsMap[it.TrackNumber], it)
+	}
+
+	result := make([]dto.Order, 0, len(bareOrders))
+	for _, o := range bareOrders {
+		o.Payment = paymentsMap[o.OrderUID]
+		o.Delivery = deliveriesMap[o.OrderUID]
+		o.Items = itemsMap[o.TrackNumber]
+
+		result = append(result, toOrderDTO(o))
+	}
+
+	return result, nil
+
 }

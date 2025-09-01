@@ -158,3 +158,12 @@ func toOrderDTO(o models.Order) dto.Order {
 		OofShard:          o.OofShard,
 	}
 }
+
+func toOrderDTOs(items []models.Order) []dto.Order {
+	itemDTOs := make([]dto.Order, len(items))
+	for i, item := range items {
+		itemDTOs[i] = toOrderDTO(item)
+	}
+
+	return itemDTOs
+}

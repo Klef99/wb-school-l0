@@ -24,7 +24,7 @@ func NewRedisClient(logger *slog.Logger, url string, ttl time.Duration, opts ...
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	cfg.DialTimeout = 5 * time.Millisecond
+
 	client := redis.NewClient(cfg)
 
 	if err := client.Ping(context.Background()).Err(); err != nil {

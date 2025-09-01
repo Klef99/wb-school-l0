@@ -173,3 +173,9 @@ Targets:
 ## Технологии
 
 **Backend:** Go, Kafka, Redis, Echo, Wire, Nginx
+
+## Структура базы данных
+
+![image](docs/db_struct.svg)
+
+## Структура проекта

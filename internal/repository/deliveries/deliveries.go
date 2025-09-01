@@ -53,3 +53,24 @@ func (r *Repository) Get(ctx context.Context, query postgres.Query, uid string) 
 		dbo.Address, dbo.Region, dbo.Email,
 	), nil
 }
+
+func (r *Repository) GetAll(ctx context.Context, query postgres.Query) ([]models.Delivery, error) {
+	var dbos []DBO
+
+	bld := r.builder.Select(tableColumns...).From(tableName)
+
+	err := query.QueryAll(ctx, &dbos, "deliveries.GetAll", bld)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all deliveries: %w", err)
+	}
+
+	deliveries := make([]models.Delivery, len(dbos))
+	for i, dbo := range dbos {
+		deliveries[i] = models.NewDeliveryFromDB(
+			dbo.OrderUID, dbo.Name, dbo.Phone, dbo.Zip, dbo.City,
+			dbo.Address, dbo.Region, dbo.Email,
+		)
+	}
+
+	return deliveries, nil
+}

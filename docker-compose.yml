@@ -159,14 +159,60 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  backend:
+
+# Not replicas because different env (REDIS_WARM_CACHE)
+  backend1:
+    container_name: backend1
     build:
       dockerfile: Dockerfile
     environment:
       - KAFKA_ADDR=kafka1:9092,kafka2:9092,kafka3:9092
       - POSTGRES_HOST=db
       - REDIS_HOST=redis
-      - ENVIRONMENT=stage
+      - ENVIRONMENT=development
+      - REDIS_WARM_CACHE=true
+    env_file:
+      - .env
+    networks:
+      - kafka-net
+      - frontend-net
+      - storage-net
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+      migrations-up:
+        condition: service_completed_successfully
+
+  backend2:
+    container_name: backend2
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_ADDR=kafka1:9092,kafka2:9092,kafka3:9092
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - ENVIRONMENT=development
+    env_file:
+      - .env
+    networks:
+      - kafka-net
+      - frontend-net
+      - storage-net
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+      migrations-up:
+        condition: service_completed_successfully
+
+  backend3:
+    container_name: backend3
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_ADDR=kafka1:9092,kafka2:9092,kafka3:9092
+      - POSTGRES_HOST=db
+      - REDIS_HOST=redis
+      - ENVIRONMENT=development
     env_file:
       - .env
     networks:
@@ -186,8 +232,7 @@ services:
     volumes:
       - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - backend
-      - frontend
+      - backend1
     networks:
       - frontend-net
 
@@ -200,22 +245,7 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - backend
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-cluster-ui
-    ports:
-      - "8081:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
-    networks:
-      - kafka-net
+      - backend1
 
 volumes:
   wb-pg-data:

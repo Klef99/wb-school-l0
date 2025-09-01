@@ -62,3 +62,24 @@ func (r *Repository) Get(ctx context.Context, query postgres.Query, trackNumber 
 
 	return itemsModels, nil
 }
+
+func (r *Repository) GetAll(ctx context.Context, query postgres.Query) ([]models.Item, error) {
+	var dbos []DBO
+
+	bld := r.builder.Select(tableColumns...).From(tableName)
+
+	err := query.QueryAll(ctx, &dbos, "items.GetAll", bld)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all deliveries: %w", err)
+	}
+
+	itemsModels := make([]models.Item, len(dbos))
+	for i, item := range dbos {
+		itemsModels[i] = models.NewItemFromDB(
+			item.ChrtID, item.TrackNumber, item.Price, item.RID, item.Name, item.Sale, item.Size, item.TotalPrice,
+			item.NMID, item.Brand, item.Status,
+		)
+	}
+
+	return itemsModels, nil
+}

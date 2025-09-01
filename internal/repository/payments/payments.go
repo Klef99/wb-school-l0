@@ -53,3 +53,24 @@ func (r *Repository) Get(ctx context.Context, query postgres.Query, transaction 
 		dbo.DeliveryCost, dbo.GoodsTotal, dbo.CustomFee,
 	), nil
 }
+
+func (r *Repository) GetAll(ctx context.Context, query postgres.Query) ([]models.Payment, error) {
+	var dbos []DBO
+
+	bld := r.builder.Select(tableColumns...).From(tableName)
+
+	err := query.QueryAll(ctx, &dbos, "payments.GetAll", bld)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all payments: %w", err)
+	}
+
+	payments := make([]models.Payment, len(dbos))
+	for i, dbo := range dbos {
+		payments[i] = models.NewPaymentFromDB(
+			dbo.Transaction, dbo.RequestID, dbo.Currency, dbo.Provider, dbo.Amount, dbo.PaymentDT, dbo.Bank,
+			dbo.DeliveryCost, dbo.GoodsTotal, dbo.CustomFee,
+		)
+	}
+
+	return payments, nil
+}

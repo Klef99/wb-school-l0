@@ -16,7 +16,10 @@ var CacheSet = wire.NewSet(
 )
 
 func ProvideRedis(cfg *config.Config, logger *slog.Logger) (*redis.Redis, func(), error) {
-	rds, err := redis.NewRedisClient(logger, cfg.Redis.DSN(), cfg.Redis.TTL, redis.MaxRetries(cfg.Redis.MaxRetries))
+	rds, err := redis.NewRedisClient(
+		logger, cfg.Redis.DSN(), cfg.Redis.TTL, redis.MaxRetries(cfg.Redis.MaxRetries),
+		redis.DialTimeout(cfg.Redis.DialTimeout),
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to connect to redis: %w", err)
 	}

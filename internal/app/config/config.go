@@ -53,13 +53,15 @@ func (c *PostgresConfig) DSN() string {
 }
 
 type RedisConfig struct {
-	Host       string        `env:"HOST" envDefault:"localhost"`
-	Port       string        `env:"PORT" envDefault:"6379"`
-	User       string        `env:"USER" envDefault:""`
-	Password   string        `env:"PASSWORD" envDefault:"redis"`
-	DB         string        `env:"DB" envDefault:"0"`
-	TTL        time.Duration `env:"TTL" envDefault:"5m"`
-	MaxRetries int           `env:"MAX_RETRIES" envDefault:"0"`
+	Host        string        `env:"HOST" envDefault:"localhost"`
+	Port        string        `env:"PORT" envDefault:"6379"`
+	User        string        `env:"USER" envDefault:""`
+	Password    string        `env:"PASSWORD" envDefault:"redis"`
+	DB          string        `env:"DB" envDefault:"0"`
+	TTL         time.Duration `env:"TTL" envDefault:"5m"`
+	MaxRetries  int           `env:"MAX_RETRIES" envDefault:"0"`
+	DialTimeout time.Duration `env:"DIAL_TIMEOUT" envDefault:"5ms"`
+	WarmCache   bool          `env:"WARM_CACHE" envDefault:"false"`
 }
 
 func (c *RedisConfig) DSN() string {

@@ -75,7 +75,8 @@ func InitializeDependencies() (*Command, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	command, cleanup7, err := ProvideCommand(logger, httpAdapter, kafkaAdapter)
+	orderCacheWarmer := NewOrderCacheWarmer(orderService, cacheManager)
+	command, cleanup7, err := ProvideCommand(logger, httpAdapter, kafkaAdapter, orderCacheWarmer)
 	if err != nil {
 		cleanup6()
 		cleanup5()

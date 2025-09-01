@@ -73,3 +73,25 @@ func (r *Repository) Exist(ctx context.Context, query postgres.Query, uid string
 
 	return orderUID == uid, err
 }
+
+func (r *Repository) GetBareAll(ctx context.Context, query postgres.Query) ([]models.Order, error) {
+	var dbos []DBO
+
+	bld := r.builder.Select(tableColumns...).From(tableName)
+
+	err := query.QueryAll(ctx, &dbos, "orders.GetAll", bld)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all bare orders: %w", err)
+	}
+
+	bareOrders := make([]models.Order, len(dbos))
+	for i, dbo := range dbos {
+		bareOrders[i] = models.NewOrderFromDBO(
+			dbo.UID, dbo.TrackNumber, dbo.Entry, models.Delivery{}, models.Payment{}, []models.Item{}, dbo.Locale,
+			dbo.InternalSignature, dbo.CustomerID, dbo.DeliveryService,
+			dbo.ShardKey, dbo.SmID, dbo.DateCreated, dbo.OofShard,
+		)
+	}
+
+	return bareOrders, nil
+}
