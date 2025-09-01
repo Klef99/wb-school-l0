@@ -13,3 +13,9 @@ func SessionTimeout(timeout time.Duration) Option {
 		c.SessionTimeout = timeout
 	}
 }
+
+func MaxAttempts(attempts int) Option {
+	return func(c *kafka.ReaderConfig) {
+		c.MaxAttempts = attempts
+	}
+}

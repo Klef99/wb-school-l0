@@ -8,12 +8,12 @@ import (
 )
 
 type HealthService struct {
-	log *slog.Logger
-	pg  postgres.StorageManager
+	logger *slog.Logger
+	pg     postgres.StorageManager
 }
 
 func NewHealthService(logger *slog.Logger, storage postgres.StorageManager) *HealthService {
-	return &HealthService{log: logger, pg: storage}
+	return &HealthService{logger: logger, pg: storage}
 }
 
 func (s *HealthService) Health(ctx context.Context) error {

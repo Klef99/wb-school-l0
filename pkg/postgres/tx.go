@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
@@ -77,9 +78,19 @@ func (t *storageTx) Health(ctx context.Context) error {
 }
 
 func (t *storageTx) Commit(ctx context.Context) error {
-	return t.Tx.Commit(ctx)
+	err := t.Tx.Commit(ctx)
+	if errors.Is(err, pgx.ErrTxClosed) {
+		return ErrTxClosed
+	}
+
+	return err
 }
 
 func (t *storageTx) Rollback(ctx context.Context) error {
-	return t.Tx.Rollback(ctx)
+	err := t.Tx.Rollback(ctx)
+	if errors.Is(err, pgx.ErrTxClosed) {
+		return ErrTxClosed
+	}
+
+	return err
 }

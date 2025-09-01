@@ -30,7 +30,7 @@ type Query interface {
 type Storage interface {
 	Query
 	Health(ctx context.Context) error
-	Close() error
+	Close()
 	BeginTx(ctx context.Context, txName string) (StorageTx, error)
 }
 
@@ -107,17 +107,17 @@ func (s *storage) BeginTx(ctx context.Context, _ string) (StorageTx, error) {
 	return &storageTx{tx}, nil
 }
 
-func (s *storage) Close() error {
-	return s.DB.Close()
+func (s *storage) Close() {
+	s.DB.Close()
 }
 
 func (s *storage) Health(ctx context.Context) error {
-	return s.DB.Health(ctx)
+	return s.DB.Ping(ctx)
 }
 
 type StorageManager interface {
 	GetStorage() Storage
-	Close() error
+	Close()
 }
 
 type storageManager struct {
@@ -128,8 +128,8 @@ func (p *storageManager) GetStorage() Storage {
 	return p.storage
 }
 
-func (p *storageManager) Close() error {
-	return p.storage.Close()
+func (p *storageManager) Close() {
+	p.storage.Close()
 }
 
 func NewStorageManager(db *Postgres) StorageManager {

@@ -19,10 +19,12 @@ var KafkaAdapterSet = wire.NewSet(
 )
 
 func ProvideKafkaConsumer(service kafka.OrderCreator, cfg *config.Config, logger *slog.Logger) (
-	*kafka.Consumer, func(), error,
+	*kafka.Kafka, func(), error,
 ) {
-	consumer, err := kafka.NewConsumer(
-		service, logger, cfg.Kafka.Addrs, cfg.Kafka.GroupID, cfg.Kafka.Topic, kafka.SessionTimeout(cfg.Kafka.Timeout),
+	consumer, err := kafka.NewKafka(
+		service, logger, cfg.Kafka.Addrs, cfg.Kafka.GroupID, cfg.Kafka.Topic, cfg.Kafka.TopicDLQ,
+		kafka.SessionTimeout(cfg.Kafka.Timeout),
+		kafka.MaxAttempts(cfg.Kafka.MaxAttempts),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -41,17 +43,21 @@ func ProvideKafkaConsumer(service kafka.OrderCreator, cfg *config.Config, logger
 	return consumer, cleanup, nil
 }
 
-func ProvideKafkaAdapter(cfg *config.Config, logger *slog.Logger, consumer *kafka.Consumer) (
+func ProvideKafkaAdapter(logger *slog.Logger, kafka *kafka.Kafka) (
 	KafkaAdapter, func(), error,
 ) {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
-		consumer.Start(context.Background())
+		kafka.Start(ctx)
 	}()
 
 	cleanup := func() {
 		logger.Info("shutting down kafka adapter")
 
-		if err := consumer.Close(); err != nil {
+		cancel()
+
+		if err := kafka.Close(); err != nil {
 			logger.Error("error shutting down kafka adapter", sl.Err(err))
 		}
 

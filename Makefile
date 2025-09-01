@@ -18,7 +18,7 @@ help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 .PHONY: help
 
-deps-bin:  ## Install service dependencies
+deps-bin:  ## Install service dependencies and tools
 	@GOBIN=${PROJECT_BIN} go install github.com/google/wire/cmd/wire@v${WIRE_VERSION}
 	@GOBIN=${PROJECT_BIN} go install github.com/vektra/mockery/${MOCKERY_BRANCH}
 	@GOBIN=${PROJECT_BIN} go install github.com/pressly/goose/v$(shell echo $(GOOSE_VERSION) | cut -d. -f1)/cmd/goose@v${GOOSE_VERSION}
@@ -28,6 +28,10 @@ deps-bin:  ## Install service dependencies
 lint: ## Run linter
 	@${PROJECT_BIN}/golangci-lint run --config=./.golangci.yml
 .PHONY: lint
+
+dotenv: ## Generate .env file from .env.example
+	@cp .env.example .env
+.PHONY: dotenv
 
 gen-wire: ## Generate wire_gen.go file
 	@${PROJECT_BIN}/wire gen github.com/klef99/wb-school-l0/cmd/di
@@ -45,19 +49,19 @@ migrations-down:
 	@GOOSE_CMD="down" make migrations ## Down migrations to latest version
 .PHONY: migrations-down
 
-infra-up: ## Up infrastructure for service
+up: ## Up service and all necessary infrastructure
 	@docker-compose up -d --build
 	@ docker-compose logs -f
-.PHONY: infra-up
+.PHONY: up
 
-infra-down: ## Down infrastructure for service
+down: ## Down service and all necessary infrastructure
 	@docker-compose down
-.PHONY: infra-down
+.PHONY: down
 
-infra-rm: ## Remove infrastructure for service
+rm: ## Remove service and all necessary infrastructure
 	@docker-compose down -v
 .PHONY: infra-rm
 
-run: gen-wire ## Build and run application (go run)
+run: gen-wire ## Build and run application (go run) (infrastructure should exits)
 	@go run ./cmd/main.go
 .PHONY: run

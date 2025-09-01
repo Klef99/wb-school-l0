@@ -4,3 +4,4 @@
 .vscode
 bin/*
 !bin/.gitkeep
+frontend/node_modules

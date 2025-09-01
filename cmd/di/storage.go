@@ -39,10 +39,7 @@ func ProvidePostgres(cfg *config.Config, logger *slog.Logger) (*postgres.Postgre
 	cleanup := func() {
 		logger.Info("Closing database connection")
 
-		err := pg.Close()
-		if err != nil {
-			logger.Error("Unable to close postgres connection: %v", err)
-		}
+		pg.Close()
 
 		logger.Info("Database connection closed")
 	}

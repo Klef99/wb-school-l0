@@ -16,6 +16,7 @@ func InitializeDependencies() (*Command, func(), error) {
 			ServiceSet,
 			KafkaAdapterSet,
 			HTTPHandlerSet,
+			CacheSet,
 			ProvideCommand,
 		),
 	)

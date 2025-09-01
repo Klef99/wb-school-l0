@@ -19,7 +19,7 @@ type Item struct {
 }
 
 func RandomItems(track string) []Item {
-	cnt := gofakeit.Number(1, 15)
+	cnt := gofakeit.Number(1, 50)
 	res := make([]Item, 0, cnt)
 	for i := 0; i < cnt; i++ {
 		res = append(

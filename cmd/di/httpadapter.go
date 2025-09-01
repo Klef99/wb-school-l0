@@ -43,6 +43,8 @@ func ProvideHTTPAdapter(
 	e.Use(middleware.RequestID())
 	e.Use(slogecho.New(logger))
 	e.Use(middleware.Recover())
+	e.Use(middleware.ContextTimeout(cfg.HTTP.Timeout))
+	e.Use(middleware.Gzip())
 
 	v1Group := e.Group("/v1")
 	// Set up endpoints
@@ -58,7 +60,7 @@ func ProvideHTTPAdapter(
 	select {
 	case err := <-errCh:
 		return HTTPAdapter{}, nil, fmt.Errorf("error start http server: %w", err)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 	}
 
 	logger.Info("HTTP started at ", cfg.HTTP.Addr)

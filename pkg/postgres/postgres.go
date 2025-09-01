@@ -56,11 +56,3 @@ func New(logger *slog.Logger, url string, opts ...Option) (*Postgres, error) {
 
 	return pg, nil
 }
-
-func (p *Postgres) Close() error {
-	return p.Close()
-}
-
-func (p *Postgres) Health(ctx context.Context) error {
-	return p.Ping(ctx)
-}

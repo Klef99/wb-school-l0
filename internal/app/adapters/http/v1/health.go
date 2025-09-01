@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -24,7 +25,7 @@ func (h *HealthHandler) Handle(c echo.Context) error {
 
 	err := h.service.Health(ctx)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, errors.New("internal server error"))
 	}
 
 	return c.NoContent(http.StatusOK)

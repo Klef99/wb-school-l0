@@ -10,6 +10,7 @@ import (
 	"github.com/klef99/wb-school-l0/internal/lib/logger/sl"
 	"github.com/klef99/wb-school-l0/internal/models"
 	"github.com/klef99/wb-school-l0/pkg/postgres"
+	"github.com/klef99/wb-school-l0/pkg/redis"
 )
 
 type PaymentsRepository interface {
@@ -36,6 +37,7 @@ type OrdersRepository interface {
 type OrderService struct {
 	logger         *slog.Logger
 	pg             postgres.StorageManager
+	cache          redis.CacheManager
 	paymentsRepo   PaymentsRepository
 	deliveriesRepo DeliveriesRepository
 	itemsRepo      ItemsRepository
@@ -43,12 +45,13 @@ type OrderService struct {
 }
 
 func NewOrderService(
-	logger *slog.Logger, pg postgres.StorageManager, paymentsRepo PaymentsRepository,
+	logger *slog.Logger, pg postgres.StorageManager, cache redis.CacheManager, paymentsRepo PaymentsRepository,
 	deliveriesRepo DeliveriesRepository, itemsRepo ItemsRepository, ordersRepo OrdersRepository,
 ) *OrderService {
 	return &OrderService{
 		logger:         logger,
 		pg:             pg,
+		cache:          cache,
 		paymentsRepo:   paymentsRepo,
 		deliveriesRepo: deliveriesRepo,
 		itemsRepo:      itemsRepo,
@@ -59,11 +62,12 @@ func NewOrderService(
 func (s *OrderService) Store(ctx context.Context, order dto.Order) error {
 	orderModel, err := toOrderModel(order)
 	if err != nil {
-		if errors.Is(err, models.ValidationError{}) {
-			s.logger.Info("validation failure", sl.Err(err))
+		var perr models.ValidationError
 
-			return nil
+		if errors.As(err, &perr) {
+			return errors.Join(ErrValidationFailed, err)
 		}
+
 		return fmt.Errorf("failed convert dto to order model: %w", err)
 	}
 
@@ -76,14 +80,9 @@ func (s *OrderService) Store(ctx context.Context, order dto.Order) error {
 
 	defer func() {
 		if err != nil {
-			if errTx = tx.Rollback(ctx); errTx != nil {
+			if errTx = tx.Rollback(ctx); errTx != nil && !errors.Is(err, postgres.ErrTxClosed) {
 				err = errors.Join(errTx, err)
 				s.logger.Error("failed to roll back transaction", sl.Err(err))
-			}
-		} else {
-			if errTx = tx.Commit(ctx); errTx != nil {
-				err = errTx
-				s.logger.Error("failed to commit transaction", sl.Err(err))
 			}
 		}
 	}()
@@ -118,6 +117,17 @@ func (s *OrderService) Store(ctx context.Context, order dto.Order) error {
 		return fmt.Errorf("failed store items: %w", err)
 	}
 
+	if err = tx.Commit(ctx); err != nil && !errors.Is(err, postgres.ErrTxClosed) {
+		s.logger.Error("failed to commit tx", sl.Err(err))
+
+		return fmt.Errorf("failed commit tx: %w", err)
+	}
+
+	err = s.cache.GetCache().Set(ctx, order.OrderUID, order)
+	if err != nil {
+		s.logger.Warn("failed to set cache", sl.Err(err))
+	}
+
 	return nil
 }
 
@@ -126,6 +136,14 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 
 	if uid == "" {
 		return dto.Order{}, errors.New("invalid uid")
+	}
+
+	var order dto.Order
+
+	if err = s.cache.GetCache().Get(ctx, uid, order); err != nil {
+		s.logger.Info("failed to get cache", sl.Err(err))
+	} else {
+		return order, nil
 	}
 
 	tx, errTx := s.pg.GetStorage().BeginTx(ctx, "tx.order.Store")
@@ -148,6 +166,15 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 			}
 		}
 	}()
+
+	ok, err := s.ordersRepo.Exist(ctx, tx, uid)
+	if err != nil {
+		return dto.Order{}, fmt.Errorf("failed check orders: %w", err)
+	}
+
+	if !ok {
+		return dto.Order{}, ErrOrderNotFound
+	}
 
 	bareOrder, err := s.ordersRepo.GetBare(ctx, tx, uid)
 	if err != nil {
@@ -173,5 +200,12 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 	bareOrder.Delivery = delivery
 	bareOrder.Items = items
 
-	return toOrderDTO(bareOrder), nil
+	order = toOrderDTO(bareOrder)
+
+	err = s.cache.GetCache().Set(ctx, order.OrderUID, order)
+	if err != nil {
+		s.logger.Info("failed to set cache", sl.Err(err))
+	}
+
+	return order, nil
 }

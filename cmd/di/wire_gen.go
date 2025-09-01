@@ -16,6 +16,7 @@ import (
 	"github.com/klef99/wb-school-l0/internal/repository/payments"
 	"github.com/klef99/wb-school-l0/internal/service"
 	"github.com/klef99/wb-school-l0/pkg/postgres"
+	"github.com/klef99/wb-school-l0/pkg/redis"
 )
 
 // Injectors from wire.go:
@@ -35,28 +36,29 @@ func InitializeDependencies() (*Command, func(), error) {
 	storageManager := postgres.NewStorageManager(postgresPostgres)
 	healthService := service.NewHealthService(logger, storageManager)
 	healthHandler := v1.NewHealthHandler(healthService)
-	statementBuilderType := ProvideStatementBuilder()
-	repository := payments.NewRepository(statementBuilderType)
-	deliveriesRepository := deliveries.NewRepository(statementBuilderType)
-	itemsRepository := items.NewRepository(statementBuilderType)
-	ordersRepository := orders.NewRepository(statementBuilderType)
-	orderService := service.NewOrderService(logger, storageManager, repository, deliveriesRepository, itemsRepository, ordersRepository)
-	getOrderHandler := v1.NewGetOrderHandler(orderService)
-	rootHandlerV1 := http.NewRootHandlerV1(healthHandler, getOrderHandler)
-	httpAdapter, cleanup3, err := ProvideHTTPAdapter(configConfig, logger, echo, rootHandlerV1)
+	redisRedis, cleanup3, err := ProvideRedis(configConfig, logger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	consumer, cleanup4, err := ProvideKafkaConsumer(orderService, configConfig, logger)
+	cacheManager := redis.NewCacheManager(redisRedis)
+	statementBuilderType := ProvideStatementBuilder()
+	repository := payments.NewRepository(statementBuilderType)
+	deliveriesRepository := deliveries.NewRepository(statementBuilderType)
+	itemsRepository := items.NewRepository(statementBuilderType)
+	ordersRepository := orders.NewRepository(statementBuilderType)
+	orderService := service.NewOrderService(logger, storageManager, cacheManager, repository, deliveriesRepository, itemsRepository, ordersRepository)
+	getOrderHandler := v1.NewGetOrderHandler(orderService)
+	rootHandlerV1 := http.NewRootHandlerV1(healthHandler, getOrderHandler)
+	httpAdapter, cleanup4, err := ProvideHTTPAdapter(configConfig, logger, echo, rootHandlerV1)
 	if err != nil {
 		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	kafkaAdapter, cleanup5, err := ProvideKafkaAdapter(configConfig, logger, consumer)
+	kafka, cleanup5, err := ProvideKafkaConsumer(orderService, configConfig, logger)
 	if err != nil {
 		cleanup4()
 		cleanup3()
@@ -64,7 +66,7 @@ func InitializeDependencies() (*Command, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	command, cleanup6, err := ProvideCommand(logger, httpAdapter, kafkaAdapter)
+	kafkaAdapter, cleanup6, err := ProvideKafkaAdapter(logger, kafka)
 	if err != nil {
 		cleanup5()
 		cleanup4()
@@ -73,7 +75,18 @@ func InitializeDependencies() (*Command, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
+	command, cleanup7, err := ProvideCommand(logger, httpAdapter, kafkaAdapter)
+	if err != nil {
+		cleanup6()
+		cleanup5()
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	return command, func() {
+		cleanup7()
 		cleanup6()
 		cleanup5()
 		cleanup4()
