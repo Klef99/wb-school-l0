@@ -277,5 +277,4 @@ func (s *OrderService) GetAll(ctx context.Context) ([]dto.Order, error) {
 	}
 
 	return result, nil
-
 }

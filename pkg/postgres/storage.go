@@ -89,6 +89,7 @@ func (s *storage) QueryAll(ctx context.Context, dest interface{}, _ string, bld 
 	if err != nil {
 		return err
 	}
+
 	err = pgxscan.Select(ctx, s.DB, dest, query, params...)
 	if err != nil {
 		return err
