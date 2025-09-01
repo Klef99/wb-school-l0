@@ -60,7 +60,7 @@ type RedisConfig struct {
 	DB          string        `env:"DB" envDefault:"0"`
 	TTL         time.Duration `env:"TTL" envDefault:"5m"`
 	MaxRetries  int           `env:"MAX_RETRIES" envDefault:"0"`
-	DialTimeout time.Duration `env:"DIAL_TIMEOUT" envDefault:"5ms"`
+	DialTimeout time.Duration `env:"DIAL_TIMEOUT" envDefault:"1h"`
 	WarmCache   bool          `env:"WARM_CACHE" envDefault:"false"`
 }
 

@@ -144,7 +144,7 @@ func (s *OrderService) Get(ctx context.Context, uid string) (dto.Order, error) {
 
 	var order dto.Order
 
-	if err = s.cache.GetCache().Get(ctx, uid, order); err != nil {
+	if err = s.cache.GetCache().Get(ctx, uid, &order); err != nil {
 		s.logger.Info("failed to get cache", sl.Err(err))
 	} else {
 		return order, nil
