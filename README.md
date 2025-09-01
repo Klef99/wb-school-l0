@@ -69,6 +69,11 @@
 
 ## Локальный запуск
 
+### Требования
+1. Make
+2. Docker и docker-compose
+3. Go 1.24.5 (для локальной сборки)
+
 Клонировать проект
 
 ```bash
@@ -81,12 +86,10 @@
   cd wb-school-l0
 ```
 
-Установить зависимости
+Сгенерировать .env файл из примера
 
 ```bash
-  make deps-bin
   make dotenv
-  make gen-wire
 ```
 
 Запустить сервис и инфраструктуру
@@ -97,7 +100,7 @@
 
 Данная команда запустит docker-compose окружение со следующими сервисами:
 
-    1. Backend
+    1. Backend (3 реплики)
     2. Frontend
     3. Kafka (3 реплики)
     4. PostgreSQL
@@ -124,7 +127,7 @@ Usage:
   make <target>
 
 Targets:
-  deps-bin            Install service dependencies and tools
+  deps-bin            Install development dependencies and tools
   lint                Run linter
   dotenv              Generate .env file from .env.example
   gen-wire            Generate wire_gen.go file
@@ -174,8 +177,10 @@ Targets:
 
 **Backend:** Go, Kafka, Redis, Echo, Wire, Nginx
 
+## Структура проекта
+
+![image](docs/schema.svg)
+
 ## Структура базы данных
 
 ![image](docs/db_struct.svg)
-
-## Структура проекта

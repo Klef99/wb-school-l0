@@ -9,7 +9,6 @@ PROJECT_DIR = $(CURDIR)
 PROJECT_BIN = ${PROJECT_DIR}/bin
 
 # Deps versions
-MOCKERY_BRANCH = "v2@v2.53.4"
 WIRE_VERSION = "0.6.0"
 GOLANGCI_VERSION = "2.4.0"
 GOOSE_VERSION = "3.24.3"
@@ -18,9 +17,9 @@ help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 .PHONY: help
 
-deps-bin:  ## Install service dependencies and tools
+deps-bin:  ## Install development dependencies and tools
+	echo "Install dependencies"
 	@GOBIN=${PROJECT_BIN} go install github.com/google/wire/cmd/wire@v${WIRE_VERSION}
-	@GOBIN=${PROJECT_BIN} go install github.com/vektra/mockery/${MOCKERY_BRANCH}
 	@GOBIN=${PROJECT_BIN} go install github.com/pressly/goose/v$(shell echo $(GOOSE_VERSION) | cut -d. -f1)/cmd/goose@v${GOOSE_VERSION}
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${PROJECT_BIN} v${GOLANGCI_VERSION}
 .PHONY: deps-bin
@@ -62,6 +61,6 @@ rm: ## Remove service and all necessary infrastructure
 	@docker-compose down -v
 .PHONY: infra-rm
 
-run: gen-wire ## Build and run application (go run) (infrastructure should exits)
+run: ## Build and run application (go run) (infrastructure should exits)
 	@go run ./cmd/main.go
 .PHONY: run
